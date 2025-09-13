@@ -31,5 +31,21 @@ abstract class AbstractBatchStrategy implements BatchSelectionStrategy {
         }
     }
 
+    @Override
+    public int deductUpTo(Connection con, Code productCode, int qtyNeeded, StockLocation location) {
+        int remaining = qtyNeeded;
+        int taken = 0;
+        for (Batch b : candidates(con, productCode, location)) {
+            if (remaining <= 0) break;
+            int take = Math.min(remaining, b.quantity().value());
+            if (take > 0) {
+                inventory.deductFromBatch(con, b.id(), take);
+                remaining -= take;
+                taken += take;
+            }
+        }
+        return taken; // caller decides next steps
+    }
+
     protected abstract List<Batch> candidates(Connection con, Code productCode, StockLocation location);
 }

@@ -28,7 +28,7 @@ public final class CheckoutCashUseCase {
         this.billNumbers = billNumbers;
     }
 
-    /** cart: list of (productCode, qty). Cash in cents. */
+    /** cart: list of (productCode, qty). Cash in cents. Hybrid fulfillment: when location==SHELF and insufficient stock, picks remainder from WEB. */
     public Bill handle(List<Item> cart, long cashCents, StockLocation location,  DiscountPolicy discountPolicy, String scope) {
         return tx.inTx(con -> {
             // 1) Build bill lines from product master
@@ -53,9 +53,22 @@ public final class CheckoutCashUseCase {
             // 4) Persist bill
             bills.save(con, bill);
 
-            // 5) Deduct inventory per line using strategy (FIFO/FEFO)
+            // 5) Deduct inventory per line.
             for (var l : bill.lines()) {
-                strategy.deduct(con, l.productCode(), l.qty().value(), location);
+                Code code = l.productCode();
+                int qty = l.qty().value();
+                if (location == StockLocation.SHELF) {
+                    // Try to deduct as much as possible from SHELF
+                    int takenShelf = strategy.deductUpTo(con, code, qty, StockLocation.SHELF);
+                    int remaining = qty - takenShelf;
+                    if (remaining > 0) {
+                        // Deduct remainder from WEB (throws if not enough there)
+                        strategy.deduct(con, code, remaining, StockLocation.WEB);
+                    }
+                } else {
+                    // Pure single-location deduction (WEB or others in future)
+                    strategy.deduct(con, code, qty, location);
+                }
             }
 
             return bill; // Return the complete bill with all line items

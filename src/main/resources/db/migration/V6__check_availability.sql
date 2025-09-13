@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS ix_batch_code_loc ON batch(product_code, location);

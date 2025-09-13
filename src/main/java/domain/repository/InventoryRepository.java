@@ -11,4 +11,12 @@ public interface InventoryRepository {
     // FEFO/FIFO candidates by product+location ordered by (expiry asc nulls last, receivedAt asc)
     List<Batch> findDeductionCandidates(Connection con, Code product, StockLocation loc);
     void deductFromBatch(Connection con, long batchId, int take);
+
+    // Sum of quantities for product at location (e.g., SHELF / WEB)
+    int totalAvailable(Connection con, String productCode, String location);
+
+    // Convenience: true if available >= required.
+    default boolean hasAtLeast(Connection con, String productCode, String location, int required) {
+        return totalAvailable(con, productCode, location) >= required;
+    }
 }

@@ -19,6 +19,12 @@ public class QuoteUseCase {
 
     public QuoteUseCase(ProductRepository products) { this.products = products; }
 
+    // Added for early validation in CLI
+    public boolean productExists(String code) {
+        if (code == null || code.isBlank()) return false;
+        return products.findByCode(new Code(code)).isPresent();
+    }
+
     public Quote preview(List<CheckoutCashUseCase.Item> cart, DiscountPolicy discountPolicy) {
         List<BillLine> lines = new ArrayList<>();
         for (var it : cart) {

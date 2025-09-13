@@ -52,4 +52,18 @@ public final class JdbcInventoryRepository implements InventoryRepository {
             if (updated == 0) throw new IllegalStateException("Concurrent update or insufficient qty for batch " + batchId);
         } catch (Exception e) { throw new RuntimeException(e); }
     }
+
+    @Override
+    public int totalAvailable(Connection con, String productCode, String location) {
+        String sql = "SELECT COALESCE(SUM(quantity),0) AS q " +
+                "FROM batch WHERE product_code=? AND location=?";
+        try (var ps = con.prepareStatement(sql)) {
+            ps.setString(1, productCode);
+            ps.setString(2, location);
+            try (var rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getInt("q");
+            }
+        } catch (Exception e) { throw new RuntimeException(e); }
+    }
 }
