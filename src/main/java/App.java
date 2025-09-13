@@ -1,9 +1,9 @@
 package main.java;
 
 
-import main.java.application.usecase.CheckoutCashUseCase;
 import main.java.application.usecase.LoginUseCase;
 import main.java.application.services.BillNumberService;
+import main.java.application.usecase.QuoteUseCase;
 import main.java.cli.*;
 import main.java.cli.cashier.CashierMenu;
 import main.java.cli.cashier.checkout.CliCheckout;
@@ -35,10 +35,13 @@ public class App {
             // Strategy / use cases
             var strategy   = new FefoStrategy(inventory);
             var billNums   = new BillNumberService(tx);         // <-- NEW
-            var checkoutUC = new CheckoutCashUseCase(tx, products, bills, strategy, billNums);
+//            var checkoutUC = new CheckoutCashUseCase(tx, products, bills, strategy, billNums);
+            var checkoutUC = new main.java.application.usecase.CheckoutCashUseCase(
+                    tx, products, bills, strategy, billNums);
+            var quoteUC    = new QuoteUseCase(products);
 
             // CLI units
-            var checkoutCLI = new CliCheckout(checkoutUC, strategy);
+            var checkoutCLI = new CliCheckout(checkoutUC, strategy, quoteUC);
             var cashierMenu = new CashierMenu(() -> checkoutCLI.run(),
                     () -> ConcurrencyDemo.run(checkoutUC),
                     ds);
@@ -55,7 +58,7 @@ public class App {
             // Loop: login -> route to menu; when logout, ask for next login
             while (true) {
                 var session = login.prompt();
-                LoginScreen.route(session, () -> cashierMenu.run(), () -> managerMenu.run());
+                LoginScreen.route(session, cashierMenu::run, managerMenu::run);
             }
         }
     }

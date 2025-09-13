@@ -2,6 +2,7 @@ package main.java.cli.demo;
 
 import main.java.application.usecase.CheckoutCashUseCase;
 import main.java.domain.inventory.StockLocation;
+import main.java.domain.pricing.NoDiscount;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -33,10 +34,12 @@ public final class ConcurrencyDemo {
 
                     long cashCents = 5000; // $50.00
                     var location = StockLocation.SHELF;
+                    var discountPolicy = new NoDiscount(); // No discount for demo
+                    String scope = "DEMO"; // Demo scope
 
                     System.out.println("[Cashier " + cashierId + "] Starting checkout...");
 
-                    var bill = checkoutUseCase.handle(cart, cashCents, location);
+                    var bill = checkoutUseCase.handle(cart, cashCents, location, discountPolicy, scope);
 
                     System.out.println("[Cashier " + cashierId + "] Completed checkout - Bill: " +
                         bill.serial() + ", Total: " + bill.total().cents() + "¢");
