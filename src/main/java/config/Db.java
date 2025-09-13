@@ -33,7 +33,8 @@ public class Db implements AutoCloseable {
             "main/resources/db/migration/V1__create_users_table.sql",
             "main/resources/db/migration/V2__init_product_and_batch.sql",
             "main/resources/db/migration/V3__billing_tables.sql",
-            "main/resources/db/migration/V4__seed_household_products.sql"
+            "main/resources/db/migration/V4__seed_household_products.sql",
+            "main/resources/db/migration/V5__bill_number_sequence.sql"
     };
 
     private final Properties properties;

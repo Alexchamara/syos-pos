@@ -2,6 +2,7 @@ package main.java.application.usecase;
 
 import main.java.domain.billing.Bill;
 import main.java.domain.billing.BillLine;
+import main.java.application.services.BillNumberService;
 import main.java.domain.inventory.StockLocation;
 import main.java.domain.policies.BatchSelectionStrategy;
 import main.java.domain.repository.BillRepository;
@@ -18,16 +19,19 @@ public final class CheckoutCashUseCase {
     private final ProductRepository products;
     private final BillRepository bills;
     private final BatchSelectionStrategy strategy;
+    private final BillNumberService billNumbers;
 
-    public CheckoutCashUseCase(Tx tx, ProductRepository products, BillRepository bills, BatchSelectionStrategy strategy) {
+    public CheckoutCashUseCase(Tx tx, ProductRepository products, BillRepository bills, BatchSelectionStrategy strategy, BillNumberService billNumbers) {
         this.tx = tx; this.products = products; this.bills = bills; this.strategy = strategy;
+        this.billNumbers = billNumbers;
     }
 
     /** cart: list of (productCode, qty). Cash in cents. */
     public Bill handle(List<Item> cart, long cashCents, StockLocation location) {
         return tx.inTx(con -> {
             // 1) Build bill lines from product master
-            var builder = new Bill.Builder().serial("BILL-" + System.currentTimeMillis());
+            String serial = billNumbers.next("COUNTER");
+            var builder = new Bill.Builder().serial(serial);
             for (Item it : cart) {
                 var prod = products.findByCode(new Code(it.code())).orElseThrow(() -> new IllegalArgumentException("Unknown product: " + it.code()));
                 var line = new BillLine(prod.code(), prod.name(), new Quantity(it.qty()), prod.price());

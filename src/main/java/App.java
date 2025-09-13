@@ -3,6 +3,7 @@ package main.java;
 
 import main.java.application.usecase.CheckoutCashUseCase;
 import main.java.application.usecase.LoginUseCase;
+import main.java.application.services.BillNumberService;
 import main.java.cli.*;
 import main.java.cli.cashier.CashierMenu;
 import main.java.cli.cashier.checkout.CliCheckout;
@@ -33,7 +34,8 @@ public class App {
 
             // Strategy / use cases
             var strategy   = new FefoStrategy(inventory);
-            var checkoutUC = new CheckoutCashUseCase(tx, products, bills, strategy);
+            var billNums   = new BillNumberService(tx);         // <-- NEW
+            var checkoutUC = new CheckoutCashUseCase(tx, products, bills, strategy, billNums);
 
             // CLI units
             var checkoutCLI = new CliCheckout(checkoutUC, strategy);
