@@ -33,7 +33,7 @@ public class App {
             var bills      = new JdbcBillRepository();
             var inventory  = new JdbcInventoryRepository(ds);
             var users      = new JdbcUserRepository(ds);
-            var shortageRepo = new JdbcShortageEventRepository();
+            var shortageRepo = new JdbcShortageEventRepository(ds);
 
             // Strategy / use cases
             var availabilitySvc = new AvailabilityService(tx, inventory);
@@ -45,7 +45,7 @@ public class App {
             var quoteUC    = new QuoteUseCase(products);
 
             // CLI units
-            var checkoutCLI = new CliCheckout(checkoutUC, strategy, quoteUC, availabilitySvc);
+            var checkoutCLI = new CliCheckout(checkoutUC, strategy, quoteUC, availabilitySvc, shortageSvc);
             var cashierMenu = new CashierMenu(checkoutCLI::run,
                     () -> ConcurrencyDemo.run(checkoutUC),
                     ds);

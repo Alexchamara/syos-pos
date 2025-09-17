@@ -94,7 +94,7 @@ public final class JdbcInventoryRepository implements InventoryRepository {
             // Deduct from source batch
             deductFromBatch(con, batch.id(), toTransfer);
 
-            // Create new batch in destination location with same expiry and received date
+            // Create new batch in destination location with current timestamp to avoid unique constraint issues
             String insertSql = """
                 INSERT INTO batch (product_code, location, received_at, expiry, quantity, version)
                 VALUES (?, ?, ?, ?, ?, 0)
@@ -103,7 +103,7 @@ public final class JdbcInventoryRepository implements InventoryRepository {
             try (var ps = con.prepareStatement(insertSql)) {
                 ps.setString(1, productCode);
                 ps.setString(2, toLocation.name());
-                ps.setTimestamp(3, java.sql.Timestamp.valueOf(batch.receivedAt()));
+                ps.setTimestamp(3, java.sql.Timestamp.valueOf(LocalDateTime.now())); // Use current time for transfer
                 if (batch.expiry() != null) {
                     ps.setDate(4, java.sql.Date.valueOf(batch.expiry()));
                 } else {

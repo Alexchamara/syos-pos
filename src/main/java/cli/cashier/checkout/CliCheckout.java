@@ -1,7 +1,7 @@
 package main.java.cli.cashier.checkout;
 
 import main.java.application.services.AvailabilityService;
-import main.java.application.services.ShortageNotifier;
+import main.java.application.services.ShortageEventService;
 import main.java.application.usecase.CheckoutCashUseCase;
 import main.java.application.usecase.CheckoutCashUseCase.Item;
 import main.java.application.usecase.QuoteUseCase;
@@ -21,15 +21,18 @@ public final class CliCheckout {
     private final BatchSelectionStrategy strategyDefault;
     private final QuoteUseCase quote;
     private final AvailabilityService availability;
+    private final ShortageEventService shortageEvents;
 
     public CliCheckout(CheckoutCashUseCase checkout,
                        BatchSelectionStrategy strategyDefault,
                        QuoteUseCase quote,
-                       AvailabilityService availability) {
+                       AvailabilityService availability,
+                       ShortageEventService shortageEvents) {
         this.checkout = checkout;
         this.strategyDefault = strategyDefault;
         this.quote = quote;
         this.availability = availability;
+        this.shortageEvents = shortageEvents;
     }
 
     public void run() {
@@ -112,7 +115,7 @@ public final class CliCheckout {
                 code, shelfStock, webStock, requestedQty);
             System.out.println(msg);
             try {
-                ShortageNotifier.record(msg);
+                shortageEvents.record(msg);
                 System.out.println("Manager notified with high priority");
             } catch (Throwable e) {
                 System.out.println("Failed to notify manager: " + e.getMessage());
@@ -140,7 +143,7 @@ public final class CliCheckout {
                 code, shelfStock, webStock, shelfStock + webStock, requestedQty);
             System.out.println(msg);
             try {
-                ShortageNotifier.record(msg);
+                shortageEvents.record(msg);
                 System.out.println("Manager notified");
             } catch (Throwable e) {
                 System.out.println("Failed to notify manager: " + e.getMessage());

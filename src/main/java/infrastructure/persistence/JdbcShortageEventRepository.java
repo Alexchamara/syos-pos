@@ -2,11 +2,17 @@ package main.java.infrastructure.persistence;
 
 import main.java.domain.repository.ShortageEventRepository;
 
+import javax.sql.DataSource;
 import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.List;
 
 public final class JdbcShortageEventRepository implements ShortageEventRepository {
+    private final DataSource ds;
+    public JdbcShortageEventRepository(DataSource ds) {
+        this.ds = ds;
+    }
+
     @Override
     public void save(Connection con, String message) {
         String sql = "INSERT INTO notify_shortage(message) VALUES (?)";
