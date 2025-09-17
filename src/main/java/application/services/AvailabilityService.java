@@ -44,4 +44,12 @@ public final class AvailabilityService {
     public int available(String productCode, StockLocation loc) {
         return tx.inTx(con -> inv.totalAvailable(con, productCode, loc.name()));
     }
+
+    /** Transfer stock from WEB to SHELF location. */
+    public void transferFromWebToShelf(String productCode, int quantity) {
+        tx.inTx(con -> {
+            inv.transferStock(con, productCode, StockLocation.WEB, StockLocation.SHELF, quantity);
+            return null;
+        });
+    }
 }

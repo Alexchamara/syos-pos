@@ -6,12 +6,20 @@ import main.java.domain.repository.InventoryRepository;
 import main.java.domain.shared.Code;
 import main.java.domain.shared.Quantity;
 
+import javax.sql.DataSource;
 import java.sql.Connection;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
 public final class JdbcInventoryRepository implements InventoryRepository {
+
+    private final DataSource dataSource;
+
+    public JdbcInventoryRepository(DataSource dataSource) {
+        this.dataSource = dataSource;
+    }
 
     @Override
     public List<Batch> findDeductionCandidates(Connection con, Code product, StockLocation loc) {
@@ -65,5 +73,54 @@ public final class JdbcInventoryRepository implements InventoryRepository {
                 return rs.getInt("q");
             }
         } catch (Exception e) { throw new RuntimeException(e); }
+    }
+
+    @Override
+    public void transferStock(Connection con, String productCode, StockLocation fromLocation, StockLocation toLocation, int quantity) {
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("Transfer quantity must be positive");
+        }
+
+        // Get batches from source location using FEFO/FIFO strategy
+        List<Batch> candidates = findDeductionCandidates(con, new Code(productCode), fromLocation);
+
+        int remaining = quantity;
+        for (Batch batch : candidates) {
+            if (remaining <= 0) break;
+
+            int available = batch.quantity().value();
+            int toTransfer = Math.min(remaining, available);
+
+            // Deduct from source batch
+            deductFromBatch(con, batch.id(), toTransfer);
+
+            // Create new batch in destination location with same expiry and received date
+            String insertSql = """
+                INSERT INTO batch (product_code, location, received_at, expiry, quantity, version)
+                VALUES (?, ?, ?, ?, ?, 0)
+                """;
+
+            try (var ps = con.prepareStatement(insertSql)) {
+                ps.setString(1, productCode);
+                ps.setString(2, toLocation.name());
+                ps.setTimestamp(3, java.sql.Timestamp.valueOf(batch.receivedAt()));
+                if (batch.expiry() != null) {
+                    ps.setDate(4, java.sql.Date.valueOf(batch.expiry()));
+                } else {
+                    ps.setDate(4, null);
+                }
+                ps.setInt(5, toTransfer);
+                ps.executeUpdate();
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to create destination batch", e);
+            }
+
+            remaining -= toTransfer;
+        }
+
+        if (remaining > 0) {
+            throw new IllegalStateException("Insufficient stock in " + fromLocation +
+                " to transfer " + quantity + " of " + productCode + ". Missing: " + remaining);
+        }
     }
 }

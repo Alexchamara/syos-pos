@@ -16,5 +16,9 @@ CREATE TABLE IF NOT EXISTS batch (
     CONSTRAINT fk_batch_product FOREIGN KEY (product_code) REFERENCES product(code)
 );
 
-CREATE INDEX IF NOT EXISTS idx_batch_lookup
+CREATE INDEX idx_batch_lookup
     ON batch (product_code, location, expiry, received_at);
+
+-- Ensure each batch is unique per product, location, received_at, and expiry to allow idempotent seeding
+CREATE UNIQUE INDEX uniq_batch_identity
+    ON batch (product_code, location, received_at, expiry);

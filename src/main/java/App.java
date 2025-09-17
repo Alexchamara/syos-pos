@@ -4,6 +4,7 @@ package main.java;
 import main.java.application.usecase.LoginUseCase;
 import main.java.application.services.BillNumberService;
 import main.java.application.services.AvailabilityService;
+import main.java.application.services.ShortageEventService;
 import main.java.application.usecase.QuoteUseCase;
 import main.java.cli.*;
 import main.java.cli.cashier.CashierMenu;
@@ -30,23 +31,25 @@ public class App {
             // Repos
             var products   = new JdbcProductRepository(ds);
             var bills      = new JdbcBillRepository();
-            var inventory  = new JdbcInventoryRepository();
+            var inventory  = new JdbcInventoryRepository(ds);
             var users      = new JdbcUserRepository(ds);
+            var shortageRepo = new JdbcShortageEventRepository();
 
             // Strategy / use cases
             var availabilitySvc = new AvailabilityService(tx, inventory);
             var strategy   = new FefoStrategy(inventory);
             var billNums   = new BillNumberService(tx);
+            var shortageSvc = new ShortageEventService(tx, shortageRepo);
             var checkoutUC = new main.java.application.usecase.CheckoutCashUseCase(
                     tx, products, bills, strategy, billNums);
             var quoteUC    = new QuoteUseCase(products);
 
             // CLI units
             var checkoutCLI = new CliCheckout(checkoutUC, strategy, quoteUC, availabilitySvc);
-            var cashierMenu = new CashierMenu(() -> checkoutCLI.run(),
+            var cashierMenu = new CashierMenu(checkoutCLI::run,
                     () -> ConcurrencyDemo.run(checkoutUC),
                     ds);
-            var managerMenu = new ManagerMenu(ds, () -> checkoutCLI.run());
+            var managerMenu = new ManagerMenu(ds, checkoutCLI::run, shortageSvc);
 
             // Auth
             var encoder = new PasswordEncoder();

@@ -1,5 +1,5 @@
--- Seed data for household products
-INSERT INTO product (code, name, price_cents) VALUES
+-- Seed data for household products (idempotent)
+INSERT IGNORE INTO product (code, name, price_cents) VALUES
 -- Cleaning Products
 ('CLN001', 'All-Purpose Cleaner 500ml', 299),
 ('CLN002', 'Dish Soap 750ml', 199),
@@ -31,8 +31,8 @@ INSERT INTO product (code, name, price_cents) VALUES
 ('HME004', 'Extension Cord 6ft', 1599),
 ('HME005', 'Air Freshener Spray', 349);
 
--- Seed data for product batches
-INSERT INTO batch (product_code, location, received_at, expiry, quantity, version) VALUES
+-- Seed data for product batches (idempotent with unique index on batch identity)
+INSERT IGNORE INTO batch (product_code, location, received_at, expiry, quantity, version) VALUES
 -- Cleaning Products Batches
 ('CLN001', 'SHELF', '2024-08-01 09:00:00', '2026-08-01', 50, 0),
 ('CLN001', 'WEB', '2024-08-15 10:30:00', '2026-08-01', 25, 0),

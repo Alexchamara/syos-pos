@@ -2,15 +2,18 @@ package main.java.cli.manager;
 
 //import com.synex.syos.application.reports.DailySalesReport;
 
-import main.java.application.services.ShortageNotifier; // added
+import main.java.application.services.ShortageEventService; // changed
 import javax.sql.DataSource;
 import java.util.Scanner;
 
 public final class ManagerMenu {
     private final DataSource ds;
     private final Runnable checkout; // optional allow manager to checkout too
+    private final ShortageEventService shortageEvents; // new
 
-    public ManagerMenu(DataSource ds, Runnable checkout) { this.ds = ds; this.checkout = checkout; }
+    public ManagerMenu(DataSource ds, Runnable checkout, ShortageEventService shortageEvents) { // updated
+        this.ds = ds; this.checkout = checkout; this.shortageEvents = shortageEvents;
+    }
 
     public void run() {
         var sc = new Scanner(System.in);
@@ -27,7 +30,7 @@ public final class ManagerMenu {
     }
 
     private void showShortages(Scanner sc) {
-        var events = ShortageNotifier.list();
+        var events = shortageEvents.list();
         if (events.isEmpty()) {
             System.out.println("No shortage notifications.");
             return;
@@ -36,7 +39,7 @@ public final class ManagerMenu {
         for (var e : events) System.out.println(e);
         System.out.print("Clear all? [y/N]: ");
         if ("y".equalsIgnoreCase(sc.nextLine().trim())) {
-            ShortageNotifier.clear();
+            shortageEvents.clear();
             System.out.println("Cleared.");
         }
     }

@@ -15,6 +15,9 @@ public interface InventoryRepository {
     // Sum of quantities for product at location (e.g., SHELF / WEB)
     int totalAvailable(Connection con, String productCode, String location);
 
+    // Transfer stock from one location to another
+    void transferStock(Connection con, String productCode, StockLocation fromLocation, StockLocation toLocation, int quantity);
+
     // Convenience: true if available >= required.
     default boolean hasAtLeast(Connection con, String productCode, String location, int required) {
         return totalAvailable(con, productCode, location) >= required;
