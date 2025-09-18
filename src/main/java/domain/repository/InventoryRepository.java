@@ -5,7 +5,10 @@ import main.java.domain.inventory.StockLocation;
 import main.java.domain.shared.Code;
 
 import java.sql.Connection;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface InventoryRepository {
     // FEFO/FIFO candidates by product+location ordered by (expiry asc nulls last, receivedAt asc)
@@ -25,4 +28,19 @@ public interface InventoryRepository {
 
     // Reminder for low quantity
     int remainingQuantity(java.sql.Connection con, String productCode, String location);
+
+    // Batch CRUD operations
+    List<Batch> findAllBatches(Connection con);
+    List<Batch> findBatchesByProduct(Connection con, Code productCode);
+    List<Batch> findBatchesByLocation(Connection con, StockLocation location);
+    Optional<Batch> findBatchById(Connection con, long batchId);
+
+    long createBatch(Connection con, Code productCode, StockLocation location,
+                     LocalDateTime receivedAt, LocalDate expiry, int quantity);
+
+    void updateBatch(Connection con, long batchId, LocalDate expiry, int quantity);
+
+    void deleteBatch(Connection con, long batchId);
+
+    boolean batchExists(Connection con, long batchId);
 }

@@ -3,6 +3,7 @@ package main.java;
 
 import main.java.application.usecase.LoginUseCase;
 import main.java.application.usecase.ProductManagementUseCase;
+import main.java.application.usecase.BatchManagementUseCase;
 import main.java.application.services.BillNumberService;
 import main.java.application.services.AvailabilityService;
 import main.java.application.services.MainStoreService;
@@ -18,6 +19,7 @@ import main.java.cli.manager.ManagerMenu;
 import main.java.cli.manager.ReceiveToMainCLI;
 import main.java.cli.manager.TransferFromMainCLI;
 import main.java.cli.manager.product.ProductManagementCLI;
+import main.java.cli.manager.batch.BatchManagementCLI;
 import main.java.cli.signin.LoginScreen;
 import main.java.config.Db;
 import main.java.domain.policies.FefoStrategy;
@@ -59,15 +61,17 @@ public class App {
             var receiveUC = new ReceiveFromSupplierUseCase(tx, invAdmin);
             var transferUC = new TransferStockUseCase(tx, inventory, invAdmin, strategy);
             var productManagementUC = new ProductManagementUseCase(products);
+            var batchManagementUC = new BatchManagementUseCase(ds, inventory, products);
 
             // CLI units
             var receiveCLI  = new ReceiveToMainCLI(receiveUC);
             var transferCLI = new TransferFromMainCLI(transferUC, availabilitySvc, quoteUC, inventory, tx);
             var checkoutCLI = new CliCheckout(checkoutUC, strategy, quoteUC, availabilitySvc, mainStoreSvc, shortageSvc);
             var productManagementCLI = new ProductManagementCLI(productManagementUC);
+            var batchManagementCLI = new BatchManagementCLI(batchManagementUC);
             var cashierMenu = new CashierMenu(checkoutCLI::run,
                     () -> ConcurrencyDemo.run(checkoutUC), ds);
-            var managerMenu = new ManagerMenu(ds, checkoutCLI::run, shortageSvc, receiveCLI::run, transferCLI::run, productManagementCLI);
+            var managerMenu = new ManagerMenu(ds, checkoutCLI::run, shortageSvc, receiveCLI::run, transferCLI::run, productManagementCLI, batchManagementCLI);
 
             // Auth
             var encoder = new PasswordEncoder();

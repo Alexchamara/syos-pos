@@ -215,4 +215,251 @@ public final class JdbcInventoryRepository implements InventoryRepository {
             throw new RuntimeException("Failed to log inventory movement", e);
         }
     }
+
+    /**
+     * Find all batches in the system
+     */
+    @Override
+    public List<Batch> findAllBatches(Connection con) {
+        String sql = """
+            SELECT id, product_code, location, received_at, expiry, quantity
+            FROM batch
+            ORDER BY product_code, location, 
+                     CASE WHEN expiry IS NULL THEN 1 ELSE 0 END, expiry, received_at
+            """;
+
+        try (var ps = con.prepareStatement(sql)) {
+            try (var rs = ps.executeQuery()) {
+                List<Batch> batches = new ArrayList<>();
+                while (rs.next()) {
+                    batches.add(createBatchFromResultSet(rs));
+                }
+                return batches;
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to find all batches", e);
+        }
+    }
+
+    /**
+     * Find batches by product code
+     */
+    @Override
+    public List<Batch> findBatchesByProduct(Connection con, Code productCode) {
+        String sql = """
+            SELECT id, product_code, location, received_at, expiry, quantity
+            FROM batch
+            WHERE product_code = ?
+            ORDER BY location, 
+                     CASE WHEN expiry IS NULL THEN 1 ELSE 0 END, expiry, received_at
+            """;
+
+        try (var ps = con.prepareStatement(sql)) {
+            ps.setString(1, productCode.value());
+            try (var rs = ps.executeQuery()) {
+                List<Batch> batches = new ArrayList<>();
+                while (rs.next()) {
+                    batches.add(createBatchFromResultSet(rs));
+                }
+                return batches;
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to find batches for product: " + productCode.value(), e);
+        }
+    }
+
+    /**
+     * Find batches by location
+     */
+    @Override
+    public List<Batch> findBatchesByLocation(Connection con, StockLocation location) {
+        String sql = """
+            SELECT id, product_code, location, received_at, expiry, quantity
+            FROM batch
+            WHERE location = ?
+            ORDER BY product_code, 
+                     CASE WHEN expiry IS NULL THEN 1 ELSE 0 END, expiry, received_at
+            """;
+
+        try (var ps = con.prepareStatement(sql)) {
+            ps.setString(1, location.name());
+            try (var rs = ps.executeQuery()) {
+                List<Batch> batches = new ArrayList<>();
+                while (rs.next()) {
+                    batches.add(createBatchFromResultSet(rs));
+                }
+                return batches;
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to find batches for location: " + location, e);
+        }
+    }
+
+    /**
+     * Find batch by ID
+     */
+    @Override
+    public java.util.Optional<Batch> findBatchById(Connection con, long batchId) {
+        String sql = """
+            SELECT id, product_code, location, received_at, expiry, quantity
+            FROM batch
+            WHERE id = ?
+            """;
+
+        try (var ps = con.prepareStatement(sql)) {
+            ps.setLong(1, batchId);
+            try (var rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return java.util.Optional.of(createBatchFromResultSet(rs));
+                }
+                return java.util.Optional.empty();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to find batch with ID: " + batchId, e);
+        }
+    }
+
+    /**
+     * Create a new batch
+     */
+    @Override
+    public long createBatch(Connection con, Code productCode, StockLocation location,
+                           LocalDateTime receivedAt, java.time.LocalDate expiry, int quantity) {
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("Batch quantity must be positive");
+        }
+
+        String sql = """
+            INSERT INTO batch (product_code, location, received_at, expiry, quantity, version)
+            VALUES (?, ?, ?, ?, ?, 0)
+            """;
+
+        try (var ps = con.prepareStatement(sql, java.sql.Statement.RETURN_GENERATED_KEYS)) {
+            ps.setString(1, productCode.value());
+            ps.setString(2, location.name());
+            ps.setTimestamp(3, java.sql.Timestamp.valueOf(receivedAt));
+            if (expiry != null) {
+                ps.setDate(4, java.sql.Date.valueOf(expiry));
+            } else {
+                ps.setDate(4, null);
+            }
+            ps.setInt(5, quantity);
+
+            int rowsAffected = ps.executeUpdate();
+            if (rowsAffected == 0) {
+                throw new RuntimeException("Failed to create batch, no rows affected");
+            }
+
+            try (var generatedKeys = ps.getGeneratedKeys()) {
+                if (generatedKeys.next()) {
+                    long batchId = generatedKeys.getLong(1);
+
+                    // Log the batch creation
+                    logInventoryMovement(con, productCode.value(), "SUPPLIER", location.name(), quantity,
+                        "New batch created - ID: " + batchId);
+
+                    return batchId;
+                } else {
+                    throw new RuntimeException("Failed to get generated batch ID");
+                }
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to create batch", e);
+        }
+    }
+
+    /**
+     * Update batch expiry and quantity
+     */
+    @Override
+    public void updateBatch(Connection con, long batchId, java.time.LocalDate expiry, int quantity) {
+        if (quantity < 0) {
+            throw new IllegalArgumentException("Batch quantity cannot be negative");
+        }
+
+        // First verify the batch exists
+        if (!batchExists(con, batchId)) {
+            throw new IllegalArgumentException("Batch with ID " + batchId + " does not exist");
+        }
+
+        String sql = """
+            UPDATE batch 
+            SET expiry = ?, quantity = ?, version = version + 1 
+            WHERE id = ?
+            """;
+
+        try (var ps = con.prepareStatement(sql)) {
+            if (expiry != null) {
+                ps.setDate(1, java.sql.Date.valueOf(expiry));
+            } else {
+                ps.setDate(1, null);
+            }
+            ps.setInt(2, quantity);
+            ps.setLong(3, batchId);
+
+            int rowsAffected = ps.executeUpdate();
+            if (rowsAffected == 0) {
+                throw new RuntimeException("Failed to update batch " + batchId + ", no rows affected");
+            }
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to update batch " + batchId, e);
+        }
+    }
+
+    /**
+     * Delete a batch
+     */
+    @Override
+    public void deleteBatch(Connection con, long batchId) {
+        // First verify the batch exists
+        if (!batchExists(con, batchId)) {
+            throw new IllegalArgumentException("Batch with ID " + batchId + " does not exist");
+        }
+
+        String sql = "DELETE FROM batch WHERE id = ?";
+
+        try (var ps = con.prepareStatement(sql)) {
+            ps.setLong(1, batchId);
+
+            int rowsAffected = ps.executeUpdate();
+            if (rowsAffected == 0) {
+                throw new RuntimeException("Failed to delete batch " + batchId + ", no rows affected");
+            }
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to delete batch " + batchId, e);
+        }
+    }
+
+    /**
+     * Check if batch exists
+     */
+    @Override
+    public boolean batchExists(Connection con, long batchId) {
+        String sql = "SELECT 1 FROM batch WHERE id = ?";
+
+        try (var ps = con.prepareStatement(sql)) {
+            ps.setLong(1, batchId);
+            try (var rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to check batch existence for ID: " + batchId, e);
+        }
+    }
+
+    /**
+     * Helper method to create Batch objects from ResultSet
+     */
+    private Batch createBatchFromResultSet(java.sql.ResultSet rs) throws java.sql.SQLException {
+        return new Batch(
+            rs.getLong("id"),
+            new Code(rs.getString("product_code")),
+            StockLocation.valueOf(rs.getString("location")),
+            rs.getTimestamp("received_at").toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime(),
+            rs.getDate("expiry") == null ? null : rs.getDate("expiry").toLocalDate(),
+            new Quantity(rs.getInt("quantity"))
+        );
+    }
 }
