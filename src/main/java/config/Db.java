@@ -36,7 +36,9 @@ public class Db implements AutoCloseable {
 //            "main/resources/db/migration/V4__seed_household_products.sql",
             "main/resources/db/migration/V5__bill_number_sequence.sql",
             "main/resources/db/migration/V6__check_availability.sql",
-            "main/resources/db/migration/V7__notify_shortage.sql"
+            "main/resources/db/migration/V7__notify_shortage.sql",
+            "main/resources/db/migration/V8__main_store_location.sql",
+            "main/resources/db/migration/V9__inventory_movement_log.sql",
     };
 
     private final Properties properties;

@@ -9,11 +9,6 @@ import main.java.infrastructure.concurrency.Tx;
 import java.util.*;
 
 public final class AvailabilityService {
-    public record Shortage(String code, int required, int available) {
-        public int missing() { return Math.max(0, required - available); }
-    }
-    public record CheckResult(boolean allAvailable, List<Shortage> shortages) {}
-
     private final Tx tx;
     private final InventoryRepository inv;
 
@@ -21,36 +16,28 @@ public final class AvailabilityService {
         this.tx = tx; this.inv = inv;
     }
 
-    /** Check if the whole cart is available at a given location (SHELF/WEB). */
-    public CheckResult checkCart(List<CheckoutCashUseCase.Item> cart, StockLocation loc) {
-        Map<String,Integer> need = new HashMap<>();
-        for (var it : cart) need.merge(it.code(), it.qty(), Integer::sum);
-
-        List<Shortage> result = tx.inTx(con -> {
-            List<Shortage> out = new ArrayList<>();
-            for (var e : need.entrySet()) {
-                String code = e.getKey();
-                int required = e.getValue();
-                int available = inv.totalAvailable(con, code, loc.name());
-                if (available < required) out.add(new Shortage(code, required, available));
-            }
-            return out;
-        });
-
-        return new CheckResult(result.isEmpty(), result);
-    }
-
     /** Available quantity for a single product at a location. */
     public int available(String productCode, StockLocation loc) {
         return tx.inTx(con -> inv.totalAvailable(con, productCode, loc.name()));
     }
 
-    /** Transfer stock from WEB to SHELF location. */
-    public void transferFromWebToShelf(String productCode, int quantity) {
+    /** Transfer stock between any two locations. */
+    public void transferStock(String productCode, StockLocation fromLocation, StockLocation toLocation, int quantity) {
         tx.inTx(con -> {
-            inv.transferStock(con, productCode, StockLocation.WEB, StockLocation.SHELF, quantity);
+            inv.transferStock(con, productCode, fromLocation, toLocation, quantity);
             return null;
         });
     }
-}
 
+    /** Get availability across all stock locations for a product. */
+    public Map<StockLocation, Integer> getAvailabilityAcrossAllLocations(String productCode) {
+        return tx.inTx(con -> {
+            Map<StockLocation, Integer> availability = new HashMap<>();
+            for (StockLocation location : StockLocation.values()) {
+                int qty = inv.totalAvailable(con, productCode, location.name());
+                availability.put(location, qty);
+            }
+            return availability;
+        });
+    }
+}

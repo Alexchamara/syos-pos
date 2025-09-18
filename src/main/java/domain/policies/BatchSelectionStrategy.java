@@ -11,7 +11,6 @@ public interface BatchSelectionStrategy {
 
     /**
      * Deduct up to quantity; returns how much was actually deducted (<= quantity).
-     * Never throws for insufficient stock; caller decides how to proceed.
      */
     int deductUpTo(Connection con, Code productCode, int quantity, StockLocation location);
 }

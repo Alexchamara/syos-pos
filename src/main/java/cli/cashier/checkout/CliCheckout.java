@@ -1,6 +1,7 @@
 package main.java.cli.cashier.checkout;
 
 import main.java.application.services.AvailabilityService;
+import main.java.application.services.MainStoreService;
 import main.java.application.services.ShortageEventService;
 import main.java.application.usecase.CheckoutCashUseCase;
 import main.java.application.usecase.CheckoutCashUseCase.Item;
@@ -21,17 +22,20 @@ public final class CliCheckout {
     private final BatchSelectionStrategy strategyDefault;
     private final QuoteUseCase quote;
     private final AvailabilityService availability;
+    private final MainStoreService mainStoreService;
     private final ShortageEventService shortageEvents;
 
     public CliCheckout(CheckoutCashUseCase checkout,
                        BatchSelectionStrategy strategyDefault,
                        QuoteUseCase quote,
                        AvailabilityService availability,
+                       MainStoreService mainStoreService,
                        ShortageEventService shortageEvents) {
         this.checkout = checkout;
         this.strategyDefault = strategyDefault;
         this.quote = quote;
         this.availability = availability;
+        this.mainStoreService = mainStoreService;
         this.shortageEvents = shortageEvents;
     }
 
@@ -63,9 +67,9 @@ public final class CliCheckout {
             int finalQuantity = handleItemRestocking(sc, code, qty);
             if (finalQuantity > 0) {
                 cart.add(new Item(code, finalQuantity));
-                System.out.println("✓ Added " + finalQuantity + " x " + code + " to cart");
+                System.out.println("Added " + finalQuantity + " x " + code + " to cart");
             } else {
-                System.out.println("✗ Item not added to cart");
+                System.out.println("Item not added to cart");
             }
         }
 
@@ -79,41 +83,66 @@ public final class CliCheckout {
     }
 
     /**
-     * Handles the restocking logic for a single item as per requirements:
-     * 1. Default deduct from SHELF
-     * 2. If not enough on SHELF, check WEB availability
-     * 3. If available on WEB, ask cashier to transfer
-     * 4. If neither SHELF nor WEB has stock, notify manager
-     *
-     * @return The final quantity to add to cart (0 if item should not be added)
+     * Handles the restocking logic
      */
     private int handleItemRestocking(Scanner sc, String code, int requestedQty) {
+        // Step 1: Check SHELF stock
         int shelfStock = availability.available(code, StockLocation.SHELF);
 
-        // DEBUG: Always show stock levels for debugging
-        System.out.println("DEBUG: Checking stock for " + code);
-        System.out.println("DEBUG: SHELF stock: " + shelfStock + ", Requested: " + requestedQty);
+        System.out.println("=== Stock Check for " + code + " ===");
+        System.out.println("SHELF stock: " + shelfStock + ", Requested: " + requestedQty);
 
-        // Check if SHELF has enough stock
         if (shelfStock >= requestedQty) {
-            System.out.println("DEBUG: Sufficient stock on SHELF, proceeding normally");
-            return requestedQty; // Sufficient stock on SHELF, proceed normally
+            System.out.println("Sufficient stock on SHELF, proceeding with checkout");
+            return requestedQty;
         }
 
-        System.out.println("⚠ Not enough stock on SHELF for " + code);
-        System.out.println("  SHELF stock: " + shelfStock + ", Required: " + requestedQty);
+        // Step 2: SHELF insufficient, check MAIN_STORE
+        System.out.println("Insufficient stock on SHELF (need " + (requestedQty - shelfStock) + " more)");
 
-        // Check WEB stock availability
+        int mainStoreStock = mainStoreService.getAvailableQuantity(code);
+        System.out.println("MAIN_STORE stock: " + mainStoreStock);
+
+        int neededFromMain = requestedQty - shelfStock;
+
+        if (mainStoreStock >= neededFromMain) {
+            // MAIN_STORE has enough, ask cashier to transfer
+            System.out.println("MAIN_STORE has sufficient stock to fulfill the request");
+            System.out.print("Transfer " + neededFromMain + " units from MAIN_STORE to SHELF? [y/N]: ");
+
+            if ("y".equalsIgnoreCase(sc.next())) {
+                try {
+                    System.out.println("Transferring " + neededFromMain + " units from MAIN_STORE to SHELF...");
+                    // Use existing transfer method from availability service
+                    transferFromMainToShelf(code, neededFromMain);
+                    System.out.println("Transfer completed successfully!");
+                    return requestedQty;
+                } catch (Exception e) {
+                    System.out.println("Transfer failed: " + e.getMessage());
+                    return handlePartialAvailability(sc, code, shelfStock);
+                }
+            } else {
+                System.out.println("Transfer declined by cashier");
+                return handlePartialAvailability(sc, code, shelfStock);
+            }
+        }
+
+        // Step 3: MAIN_STORE insufficient, check WEB
+        System.out.println("MAIN_STORE insufficient (has " + mainStoreStock + ", need " + neededFromMain + ")");
+
         int webStock = availability.available(code, StockLocation.WEB);
-        System.out.println("  WEB stock: " + webStock);
-        System.out.println("DEBUG: Total available: " + (shelfStock + webStock));
+        System.out.println("WEB stock: " + webStock);
 
-        if (webStock == 0) {
-            // No stock in WEB either
-            System.out.println("No stock available in WEB either!");
-            String msg = String.format("URGENT: Product %s out of stock (SHELF: %d, WEB: %d, Required: %d)",
-                code, shelfStock, webStock, requestedQty);
+        int totalAvailable = shelfStock + mainStoreStock + webStock;
+        System.out.println("Total available across all locations: " + totalAvailable);
+
+        if (totalAvailable < requestedQty) {
+            // Not enough stock anywhere
+            System.out.println("Insufficient total stock across all locations!");
+            String msg = String.format("URGENT: Product %s insufficient stock (SHELF: %d + MAIN: %d + WEB: %d = %d, Required: %d)",
+                    code, shelfStock, mainStoreStock, webStock, totalAvailable, requestedQty);
             System.out.println(msg);
+
             try {
                 shortageEvents.record(msg);
                 System.out.println("Manager notified with high priority");
@@ -121,70 +150,77 @@ public final class CliCheckout {
                 System.out.println("Failed to notify manager: " + e.getMessage());
             }
 
-            // Offer to use only available SHELF quantity if any
-            if (shelfStock > 0) {
-                System.out.print("Use only available SHELF quantity (" + shelfStock + ")? [y/N]: ");
-                if ("y".equalsIgnoreCase(sc.next())) {
-                    return shelfStock;
-                }
-            }
-            return 0; // Cannot add to cart
+            return handlePartialAvailability(sc, code, totalAvailable);
         }
 
         // Calculate how much we need from WEB
-        int neededFromWeb = requestedQty - shelfStock;
-        System.out.println("DEBUG: Need " + neededFromWeb + " from WEB");
+        int stillNeedFromWeb = neededFromMain - mainStoreStock;
 
-        if (webStock < neededFromWeb) {
-            // Not enough in WEB to fulfill the request
-            System.out.println("Insufficient total stock!");
-            System.out.println("  Available total: " + (shelfStock + webStock) + ", Required: " + requestedQty);
-            String msg = String.format("Product %s insufficient stock (SHELF: %d + WEB: %d = %d, Required: %d)",
-                code, shelfStock, webStock, shelfStock + webStock, requestedQty);
-            System.out.println(msg);
-            try {
-                shortageEvents.record(msg);
-                System.out.println("Manager notified");
-            } catch (Throwable e) {
-                System.out.println("Failed to notify manager: " + e.getMessage());
-            }
+        if (webStock >= stillNeedFromWeb) {
+            // WEB has enough, ask cashier for two-step transfer
+            System.out.println("WEB has sufficient stock (" + webStock + " available)");
+            System.out.println("This requires a two-step transfer:");
+            System.out.println("  Step 1: WEB → MAIN_STORE (" + stillNeedFromWeb + " units)");
+            System.out.println("  Step 2: MAIN_STORE → SHELF (" + neededFromMain + " units)");
+            System.out.print("Proceed with two-step transfer? [y/N]: ");
 
-            // Offer to use only available quantity
-            if (shelfStock > 0) {
-                System.out.print("Use only available SHELF quantity (" + shelfStock + ")? [y/N]: ");
-                if ("y".equalsIgnoreCase(sc.next())) {
-                    return shelfStock;
+            if ("y".equalsIgnoreCase(sc.next())) {
+                try {
+                    // Step 1: Transfer from WEB to MAIN_STORE
+                    System.out.println("Step 1: Transferring " + stillNeedFromWeb + " units from WEB to MAIN_STORE...");
+                    transferFromWebToMain(code, stillNeedFromWeb);
+                    System.out.println("Step 1 completed");
+
+                    // Step 2: Transfer from MAIN_STORE to SHELF
+                    System.out.println("Step 2: Transferring " + neededFromMain + " units from MAIN_STORE to SHELF...");
+                    transferFromMainToShelf(code, neededFromMain);
+                    System.out.println("Step 2 completed");
+
+                    System.out.println("Two-step transfer completed successfully!");
+                    return requestedQty;
+
+                } catch (Exception e) {
+                    System.out.println("Transfer failed: " + e.getMessage());
+                    return handlePartialAvailability(sc, code, shelfStock);
                 }
-            }
-            return 0;
-        }
-
-        // WEB has enough stock, ask cashier to transfer
-        System.out.println("WEB has sufficient stock (" + webStock + " available)");
-        System.out.println("Need to transfer " + neededFromWeb + " units from WEB to SHELF");
-        System.out.print("Transfer " + neededFromWeb + " units from WEB to SHELF? [y/N]: ");
-
-        if ("y".equalsIgnoreCase(sc.next())) {
-            try {
-                System.out.println("Transferring " + neededFromWeb + " units from WEB to SHELF...");
-                availability.transferFromWebToShelf(code, neededFromWeb);
-                System.out.println("Transfer completed successfully!");
-                return requestedQty;
-            } catch (Exception e) {
-                System.out.println("Transfer failed: " + e.getMessage());
-                return 0;
+            } else {
+                System.out.println("Two-step transfer declined by cashier");
+                return handlePartialAvailability(sc, code, shelfStock);
             }
         } else {
-            // Cashier declined transfer, offer alternatives
-            System.out.println("Transfer declined.");
-            if (shelfStock > 0) {
-                System.out.print("Use only available SHELF quantity (" + shelfStock + ")? [y/N]: ");
-                if ("y".equalsIgnoreCase(sc.next())) {
-                    return shelfStock;
-                }
-            }
-            return 0; // Item will not be added to cart
+            // Even WEB doesn't have enough
+            System.out.println("Even WEB doesn't have sufficient stock");
+            return handlePartialAvailability(sc, code, totalAvailable);
         }
+    }
+
+    /**
+     * Handles partial availability scenarios - offers cashier to use available quantity
+     */
+    private int handlePartialAvailability(Scanner sc, String code, int availableQty) {
+        if (availableQty > 0) {
+            System.out.print("Use only available quantity (" + availableQty + ") from SHELF? [y/N]: ");
+            if ("y".equalsIgnoreCase(sc.next())) {
+                return availableQty;
+            }
+        }
+        return 0; // Item will not be added to cart
+    }
+
+    /**
+     * Transfer stock from MAIN_STORE to SHELF
+     */
+    private void transferFromMainToShelf(String productCode, int quantity) throws Exception {
+        // Use the existing inventory repository transfer method
+        availability.transferStock(productCode, StockLocation.MAIN_STORE, StockLocation.SHELF, quantity);
+    }
+
+    /**
+     * Transfer stock from WEB to MAIN_STORE
+     */
+    private void transferFromWebToMain(String productCode, int quantity) throws Exception {
+        // Use the existing inventory repository transfer method
+        availability.transferStock(productCode, StockLocation.WEB, StockLocation.MAIN_STORE, quantity);
     }
 
     private void continueNormalCheckout(Scanner sc, List<Item> cart) {

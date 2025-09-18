@@ -4,13 +4,18 @@ package main.java;
 import main.java.application.usecase.LoginUseCase;
 import main.java.application.services.BillNumberService;
 import main.java.application.services.AvailabilityService;
+import main.java.application.services.MainStoreService;
 import main.java.application.services.ShortageEventService;
 import main.java.application.usecase.QuoteUseCase;
+import main.java.application.usecase.ReceiveFromSupplierUseCase;
+import main.java.application.usecase.TransferStockUseCase;
 import main.java.cli.*;
 import main.java.cli.cashier.CashierMenu;
 import main.java.cli.cashier.checkout.CliCheckout;
 import main.java.cli.demo.ConcurrencyDemo;
 import main.java.cli.manager.ManagerMenu;
+import main.java.cli.manager.ReceiveToMainCLI;
+import main.java.cli.manager.TransferFromMainCLI;
 import main.java.cli.signin.LoginScreen;
 import main.java.config.Db;
 import main.java.domain.policies.FefoStrategy;
@@ -41,19 +46,24 @@ public class App {
 
             // Strategy / use cases
             var availabilitySvc = new AvailabilityService(tx, inventory);
+            var mainStoreSvc = new MainStoreService(tx, inventory);
             var strategy   = new FefoStrategy(inventory);
             var billNums   = new BillNumberService(tx);
             var shortageSvc = new ShortageEventService(tx, shortageRepo);
             var checkoutUC = new main.java.application.usecase.CheckoutCashUseCase(
                     tx, products, bills, strategy, billNums, inventory, bus);
             var quoteUC    = new QuoteUseCase(products);
+            var invAdmin = new JdbcInventoryAdminRepository();
+            var receiveUC = new ReceiveFromSupplierUseCase(tx, invAdmin);
+            var transferUC = new TransferStockUseCase(tx, inventory, invAdmin, strategy);
 
             // CLI units
-            var checkoutCLI = new CliCheckout(checkoutUC, strategy, quoteUC, availabilitySvc, shortageSvc);
+            var receiveCLI  = new ReceiveToMainCLI(receiveUC);
+            var transferCLI = new TransferFromMainCLI(transferUC, availabilitySvc, quoteUC, inventory, tx);
+            var checkoutCLI = new CliCheckout(checkoutUC, strategy, quoteUC, availabilitySvc, mainStoreSvc, shortageSvc);
             var cashierMenu = new CashierMenu(checkoutCLI::run,
-                    () -> ConcurrencyDemo.run(checkoutUC),
-                    ds);
-            var managerMenu = new ManagerMenu(ds, checkoutCLI::run, shortageSvc);
+                    () -> ConcurrencyDemo.run(checkoutUC), ds);
+            var managerMenu = new ManagerMenu(ds, checkoutCLI::run, shortageSvc, receiveCLI::run, transferCLI::run);
 
             // Auth
             var encoder = new PasswordEncoder();

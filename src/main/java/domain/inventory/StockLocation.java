@@ -1,3 +1,3 @@
 package main.java.domain.inventory;
 
-public enum StockLocation { SHELF, WEB }
+public enum StockLocation { MAIN_STORE, SHELF, WEB }

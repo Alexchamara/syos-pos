@@ -1,9 +1,9 @@
 package main.java.cli.manager;
 
-//import com.synex.syos.application.reports.DailySalesReport;
-
 import main.java.application.services.ShortageEventService;
 import main.java.application.reports.ReorderReport;
+import main.java.cli.manager.ReceiveToMainCLI;
+import main.java.cli.manager.TransferFromMainCLI;
 import javax.sql.DataSource;
 import java.util.Scanner;
 
@@ -11,20 +11,25 @@ public final class ManagerMenu {
     private final DataSource ds;
     private final Runnable checkout; // optional allow manager to checkout too
     private final ShortageEventService shortageEvents;
+    private final Runnable receiveToMain;
+    private final Runnable transferFromMain;
 
-    public ManagerMenu(DataSource ds, Runnable checkout, ShortageEventService shortageEvents) {
+    public ManagerMenu(DataSource ds, Runnable checkout, ShortageEventService shortageEvents, Runnable receiveToMain, Runnable transferFromMain) {
         this.ds = ds; this.checkout = checkout; this.shortageEvents = shortageEvents;
+        this.receiveToMain = receiveToMain; this.transferFromMain = transferFromMain;
     }
 
     public void run() {
         var sc = new Scanner(System.in);
         while (true) {
-            System.out.println("\n[MANAGER] 1) Daily Sales  2) Checkout  3) Low-Stock Records  4) Shortage Alerts  0) Logout");
+            System.out.println("\n[MANAGER] 1) Daily Sales  2) Checkout  3) Reorder <50  4) New Batch to MAIN  5) Transfer Batch MAIN->SHELF/WEB  0) Logout");
             switch (sc.nextLine().trim()) {
 //                case "1" -> new DailySalesReport(ds).run();
                 case "2" -> checkout.run();
                 case "3" -> new ReorderReport(ds, 50).run();
-                case "4" -> showShortages(sc);
+//                case "4" -> showShortages(sc);
+                case "4" -> receiveToMain.run();
+                case "5" -> transferFromMain.run();
                 case "0" -> { return; }
                 default -> System.out.println("?");
             }
