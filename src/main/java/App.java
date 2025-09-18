@@ -17,6 +17,8 @@ import main.java.domain.policies.FefoStrategy;
 import main.java.infrastructure.concurrency.Tx;
 import main.java.infrastructure.persistence.*;
 import main.java.infrastructure.security.PasswordEncoder;
+import main.java.infrastructure.events.SimpleBus;
+import main.java.infrastructure.events.LowStockPrinter;
 
 /**®
  * Main application entry point
@@ -34,6 +36,8 @@ public class App {
             var inventory  = new JdbcInventoryRepository(ds);
             var users      = new JdbcUserRepository(ds);
             var shortageRepo = new JdbcShortageEventRepository(ds);
+            var bus = new SimpleBus();
+            bus.subscribe(new LowStockPrinter());
 
             // Strategy / use cases
             var availabilitySvc = new AvailabilityService(tx, inventory);
@@ -41,7 +45,7 @@ public class App {
             var billNums   = new BillNumberService(tx);
             var shortageSvc = new ShortageEventService(tx, shortageRepo);
             var checkoutUC = new main.java.application.usecase.CheckoutCashUseCase(
-                    tx, products, bills, strategy, billNums);
+                    tx, products, bills, strategy, billNums, inventory, bus);
             var quoteUC    = new QuoteUseCase(products);
 
             // CLI units

@@ -22,4 +22,7 @@ public interface InventoryRepository {
     default boolean hasAtLeast(Connection con, String productCode, String location, int required) {
         return totalAvailable(con, productCode, location) >= required;
     }
+
+    // Reminder for low quantity
+    int remainingQuantity(java.sql.Connection con, String productCode, String location);
 }

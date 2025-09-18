@@ -123,4 +123,13 @@ public final class JdbcInventoryRepository implements InventoryRepository {
                 " to transfer " + quantity + " of " + productCode + ". Missing: " + remaining);
         }
     }
+
+    @Override
+    public int remainingQuantity(java.sql.Connection con, String code, String location) {
+        String sql = "SELECT COALESCE(SUM(quantity),0) q FROM batch WHERE product_code=? AND UPPER(location)=UPPER(?)";
+        try (var ps = con.prepareStatement(sql)) {
+            ps.setString(1, code); ps.setString(2, location);
+            try (var rs = ps.executeQuery()) { rs.next(); return rs.getInt("q"); }
+        } catch (Exception e) { throw new RuntimeException(e); }
+    }
 }

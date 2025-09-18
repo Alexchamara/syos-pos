@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS product (
 CREATE TABLE IF NOT EXISTS batch (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     product_code VARCHAR(64) NOT NULL,
-    location ENUM('SHELF','WEB') NOT NULL,
+    location ENUM('SHELF','WEB', 'MAIN_STORE') NOT NULL,
     received_at DATETIME NOT NULL,
     expiry DATE NULL,
     quantity INT NOT NULL,
