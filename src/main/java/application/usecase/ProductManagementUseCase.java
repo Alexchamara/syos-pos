@@ -1,0 +1,114 @@
+package main.java.application.usecase;
+
+import main.java.domain.product.Product;
+import main.java.domain.repository.ProductRepository;
+import main.java.domain.shared.Code;
+import main.java.domain.shared.Money;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Optional;
+
+public final class ProductManagementUseCase {
+    private final ProductRepository productRepository;
+
+    public ProductManagementUseCase(ProductRepository productRepository) {
+        this.productRepository = productRepository;
+    }
+
+    public static final class CreateProductRequest {
+        private final String code;
+        private final String name;
+        private final BigDecimal price;
+
+        public CreateProductRequest(String code, String name, BigDecimal price) {
+            this.code = code;
+            this.name = name;
+            this.price = price;
+        }
+
+        public String code() { return code; }
+        public String name() { return name; }
+        public BigDecimal price() { return price; }
+    }
+
+    public static final class ProductInfo {
+        private final String code;
+        private final String name;
+        private final BigDecimal price;
+
+        public ProductInfo(Product product) {
+            this.code = product.code().value();
+            this.name = product.name();
+            this.price = product.price().amount();
+        }
+
+        public String code() { return code; }
+        public String name() { return name; }
+        public BigDecimal price() { return price; }
+    }
+
+    public enum CreateResult {
+        SUCCESS,
+        UPDATED
+    }
+
+    public enum DeleteResult {
+        SUCCESS,
+        NOT_FOUND
+    }
+
+    public CreateResult createProduct(CreateProductRequest request) {
+        validateCreateRequest(request);
+
+        Code code = new Code(request.code());
+        Optional<Product> existingProduct = productRepository.findByCode(code);
+
+        Product product = new Product(
+            code,
+            request.name(),
+            Money.of(request.price())
+        );
+
+        productRepository.upsert(product);
+
+        return existingProduct.isPresent() ? CreateResult.UPDATED : CreateResult.SUCCESS;
+    }
+
+    public Optional<ProductInfo> findProduct(String code) {
+        if (code == null || code.isBlank()) {
+            throw new IllegalArgumentException("Product code cannot be null or blank");
+        }
+
+        return productRepository.findByCode(new Code(code))
+            .map(ProductInfo::new);
+    }
+
+    public List<ProductInfo> listAllProducts() {
+        return productRepository.findAll()
+            .stream()
+            .map(ProductInfo::new)
+            .toList();
+    }
+
+    public DeleteResult deleteProduct(String code) {
+        if (code == null || code.isBlank()) {
+            throw new IllegalArgumentException("Product code cannot be null or blank");
+        }
+
+        boolean deleted = productRepository.deleteByCode(new Code(code));
+        return deleted ? DeleteResult.SUCCESS : DeleteResult.NOT_FOUND;
+    }
+
+    private void validateCreateRequest(CreateProductRequest request) {
+        if (request.code() == null || request.code().isBlank()) {
+            throw new IllegalArgumentException("Product code cannot be null or blank");
+        }
+        if (request.name() == null || request.name().isBlank()) {
+            throw new IllegalArgumentException("Product name cannot be null or blank");
+        }
+        if (request.price() == null || request.price().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Product price must be positive");
+        }
+    }
+}

@@ -7,6 +7,8 @@ import main.java.domain.shared.Money;
 
 import javax.sql.DataSource;
 import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 public final class JdbcProductRepository implements ProductRepository {
@@ -35,6 +37,28 @@ public final class JdbcProductRepository implements ProductRepository {
                 var price = Money.of(rs.getLong("price_cents"));
                 return Optional.of(new Product(new Code(rs.getString("code")), rs.getString("name"), price));
             }
+        } catch (Exception e) { throw new RuntimeException(e); }
+    }
+
+    @Override public List<Product> findAll() {
+        String sql = "SELECT code,name,price_cents FROM product ORDER BY code";
+        List<Product> products = new ArrayList<>();
+        try (var con = ds.getConnection(); var ps = con.prepareStatement(sql)) {
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    var price = Money.of(rs.getLong("price_cents"));
+                    products.add(new Product(new Code(rs.getString("code")), rs.getString("name"), price));
+                }
+            }
+        } catch (Exception e) { throw new RuntimeException(e); }
+        return products;
+    }
+
+    @Override public boolean deleteByCode(Code code) {
+        String sql = "DELETE FROM product WHERE code=?";
+        try (var con = ds.getConnection(); var ps = con.prepareStatement(sql)) {
+            ps.setString(1, code.value());
+            return ps.executeUpdate() > 0;
         } catch (Exception e) { throw new RuntimeException(e); }
     }
 }

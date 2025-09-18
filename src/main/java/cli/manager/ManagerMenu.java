@@ -4,6 +4,7 @@ import main.java.application.services.ShortageEventService;
 import main.java.application.reports.ReorderReport;
 import main.java.cli.manager.ReceiveToMainCLI;
 import main.java.cli.manager.TransferFromMainCLI;
+import main.java.cli.manager.product.ProductManagementCLI;
 import javax.sql.DataSource;
 import java.util.Scanner;
 
@@ -13,16 +14,18 @@ public final class ManagerMenu {
     private final ShortageEventService shortageEvents;
     private final Runnable receiveToMain;
     private final Runnable transferFromMain;
+    private final ProductManagementCLI productManagement;
 
-    public ManagerMenu(DataSource ds, Runnable checkout, ShortageEventService shortageEvents, Runnable receiveToMain, Runnable transferFromMain) {
+    public ManagerMenu(DataSource ds, Runnable checkout, ShortageEventService shortageEvents, Runnable receiveToMain, Runnable transferFromMain, ProductManagementCLI productManagement) {
         this.ds = ds; this.checkout = checkout; this.shortageEvents = shortageEvents;
         this.receiveToMain = receiveToMain; this.transferFromMain = transferFromMain;
+        this.productManagement = productManagement;
     }
 
     public void run() {
         var sc = new Scanner(System.in);
         while (true) {
-            System.out.println("\n[MANAGER] 1) Daily Sales  2) Checkout  3) Reorder <50  4) New Batch to MAIN  5) Transfer Batch MAIN->SHELF/WEB  0) Logout");
+            System.out.println("\n[MANAGER] 1) Daily Sales  2) Checkout  3) Reorder <50  4) New Batch to MAIN  5) Transfer Batch MAIN->SHELF/WEB  6) Product Management  0) Logout");
             switch (sc.nextLine().trim()) {
 //                case "1" -> new DailySalesReport(ds).run();
                 case "2" -> checkout.run();
@@ -30,6 +33,7 @@ public final class ManagerMenu {
 //                case "4" -> showShortages(sc);
                 case "4" -> receiveToMain.run();
                 case "5" -> transferFromMain.run();
+                case "6" -> productManagement.run();
                 case "0" -> { return; }
                 default -> System.out.println("?");
             }
