@@ -42,15 +42,30 @@ public final class CliCheckout {
     public void run() {
         Scanner sc = new Scanner(System.in);
         System.out.println("=== SYOS Checkout (CLI) ===");
-        System.out.println("Type product code then quantity. Type 'done' to finish.");
+        System.out.println("Commands:");
+        System.out.println("  - Enter product code to add items");
+        System.out.println("  - 'view' to see cart contents");
+        System.out.println("  - 'remove' to remove items from cart");
+        System.out.println("  - 'done' to proceed to checkout");
 
         List<Item> cart = new ArrayList<>();
 
         while (true) {
-            System.out.print("Item code (or 'done'): ");
-            String code = sc.next().trim();
-            if (code.equalsIgnoreCase("done")) break;
+            System.out.print("\nCart (" + cart.size() + " items) > Enter command or product code: ");
+            String input = sc.next().trim();
 
+            if (input.equalsIgnoreCase("done")) {
+                break;
+            } else if (input.equalsIgnoreCase("view")) {
+                viewCart(cart);
+                continue;
+            } else if (input.equalsIgnoreCase("remove")) {
+                removeFromCart(sc, cart);
+                continue;
+            }
+
+            // Handle product code input
+            String code = input;
             if (!quote.productExists(code)) {
                 System.out.println("Invalid code: " + code);
                 continue;
@@ -66,7 +81,7 @@ public final class CliCheckout {
             // Check availability and handle restocking for this item
             int finalQuantity = handleItemRestocking(sc, code, qty);
             if (finalQuantity > 0) {
-                cart.add(new Item(code, finalQuantity));
+                addToCart(cart, code, finalQuantity);
                 System.out.println("Added " + finalQuantity + " x " + code + " to cart");
             } else {
                 System.out.println("Item not added to cart");
@@ -80,6 +95,89 @@ public final class CliCheckout {
 
         // Continue with normal checkout process
         continueNormalCheckout(sc, cart);
+    }
+
+    /**
+     * Display cart contents with item details
+     */
+    private void viewCart(List<Item> cart) {
+        if (cart.isEmpty()) {
+            System.out.println("Cart is empty");
+            return;
+        }
+
+        System.out.println("\n=== CART CONTENTS ===");
+        System.out.printf("%-5s %-15s %-10s%n", "No.", "Product Code", "Quantity");
+        System.out.println("------------------------------");
+
+        for (int i = 0; i < cart.size(); i++) {
+            Item item = cart.get(i);
+            System.out.printf("%-5d %-15s %-10d%n", (i + 1), item.code(), item.qty());
+        }
+
+        System.out.println("------------------------------");
+        System.out.println("Total items: " + cart.size());
+
+        // Show preview if items exist
+        try {
+            var preview = quote.preview(cart, new NoDiscount());
+            System.out.println("Estimated total: " + preview.total().amount().toPlainString());
+        } catch (Exception e) {
+            System.out.println("Could not calculate preview total");
+        }
+    }
+
+    /**
+     * Remove items from cart
+     */
+    private void removeFromCart(Scanner sc, List<Item> cart) {
+        if (cart.isEmpty()) {
+            System.out.println("Cart is empty - nothing to remove");
+            return;
+        }
+
+        viewCart(cart);
+
+        System.out.print("Enter item number to remove (1-" + cart.size() + ") or 'cancel': ");
+        String input = sc.next().trim();
+
+        if (input.equalsIgnoreCase("cancel")) {
+            return;
+        }
+
+        try {
+            int itemNumber = Integer.parseInt(input);
+            if (itemNumber < 1 || itemNumber > cart.size()) {
+                System.out.println("Invalid item number");
+                return;
+            }
+
+            Item removedItem = cart.remove(itemNumber - 1);
+            System.out.println("Removed " + removedItem.qty() + " x " + removedItem.code() + " from cart");
+
+        } catch (NumberFormatException e) {
+            System.out.println("Please enter a valid number");
+        }
+    }
+
+    /**
+     * Add item to cart, consolidating quantities if the same product already exists
+     */
+    private void addToCart(List<Item> cart, String code, int quantity) {
+        // Check if product already exists in cart
+        for (int i = 0; i < cart.size(); i++) {
+            Item existingItem = cart.get(i);
+            if (existingItem.code().equals(code)) {
+                // Replace with combined quantity
+                int newQuantity = existingItem.qty() + quantity;
+                cart.set(i, new Item(code, newQuantity));
+                System.out.println("Updated existing item. New quantity: " + newQuantity);
+                return;
+            }
+        }
+
+        // Product not in cart, add new item
+        cart.add(new Item(code, quantity));
     }
 
     /**

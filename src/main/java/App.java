@@ -15,7 +15,6 @@ import main.java.application.usecase.TransferStockUseCase;
 import main.java.cli.*;
 import main.java.cli.cashier.CashierMenu;
 import main.java.cli.cashier.checkout.CliCheckout;
-import main.java.cli.demo.ConcurrencyDemo;
 import main.java.cli.manager.ManagerMenu;
 import main.java.cli.manager.ReceiveToMainCLI;
 import main.java.cli.manager.TransferFromMainCLI;
@@ -74,8 +73,7 @@ public class App {
             var categoryManagementCLI = new CategoryManagementCLI(categoryManagementUC);
             var productManagementCLI = new ProductManagementCLI(productManagementUC, categoryManagementUC);
             var batchManagementCLI = new BatchManagementCLI(batchManagementUC);
-            var cashierMenu = new CashierMenu(checkoutCLI::run,
-                    () -> ConcurrencyDemo.run(checkoutUC), ds);
+            var cashierMenu = new CashierMenu(checkoutCLI::run, ds);
             var managerMenu = new ManagerMenu(ds, checkoutCLI::run, shortageSvc, receiveCLI::run, transferCLI::run, productManagementCLI, batchManagementCLI, categoryManagementCLI);
 
             // Auth
