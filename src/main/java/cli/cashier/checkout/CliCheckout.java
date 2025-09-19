@@ -12,6 +12,7 @@ import main.java.domain.policies.BatchSelectionStrategy;
 import main.java.domain.pricing.DiscountPolicy;
 import main.java.domain.pricing.NoDiscount;
 import main.java.domain.pricing.PercentDiscount;
+import main.java.domain.shared.Currency;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -121,7 +122,7 @@ public final class CliCheckout {
         // Show preview if items exist
         try {
             var preview = quote.preview(cart, new NoDiscount());
-            System.out.println("Estimated total: Rs." + preview.total().amount().toPlainString());
+            System.out.println("Estimated total: " + Currency.formatSimple(preview.total()));
         } catch (Exception e) {
             System.out.println("Could not calculate preview total");
         }
@@ -342,7 +343,7 @@ public final class CliCheckout {
         long needCents = q.total().amount().movePointRight(2).longValueExact();
         long cash;
         while (true) {
-            System.out.print("Cash (cents, e.g., 10000 = Rs.100.00): ");
+            System.out.print("Cash (cents, e.g., 10000 = " + Currency.SYMBOL + "100.00): ");
             cash = sc.nextLong();
             if (cash < needCents) {
                 System.out.println("Insufficient cash. Need at least " + q.total().amount().toPlainString());

@@ -2,6 +2,7 @@ package main.java.cli.bill;
 
 import main.java.domain.billing.Bill;
 import main.java.application.usecase.QuoteUseCase;
+import main.java.domain.shared.Currency;
 import java.time.format.DateTimeFormatter;
 
 public final class BillPrinter {
@@ -13,29 +14,29 @@ public final class BillPrinter {
         System.out.println("Serial: " + b.serial());
         System.out.println("Date  : " + b.dateTime().format(DF));
         b.lines().forEach(l ->
-                System.out.printf("%-10s x%-3d @ Rs.%s = Rs.%s%n",
+                System.out.printf("%-10s x%-3d @ %s = %s%n",
                         l.productCode().value(), l.qty().value(),
-                        l.unitPrice().amount().toPlainString(),
-                        l.lineTotal().amount().toPlainString()));
+                        Currency.formatSimple(l.unitPrice()),
+                        Currency.formatSimple(l.lineTotal())));
         System.out.println("----------------------------");
-        System.out.println("TOTAL   : Rs." + b.total().amount().toPlainString());
-        System.out.println("CASH    : Rs." + b.cash().amount().toPlainString());
-        System.out.println("CHANGE  : Rs." + b.change().amount().toPlainString());
+        System.out.println("TOTAL   : " + Currency.formatSimple(b.total()));
+        System.out.println("CASH    : " + Currency.formatSimple(b.cash()));
+        System.out.println("CHANGE  : " + Currency.formatSimple(b.change()));
         System.out.println("----------------------------\n");
     }
 
     public static void printPreview(QuoteUseCase.Quote q) {
         System.out.println("\n-------- PRE-BILL (PREVIEW) --------");
         q.lines().forEach(l ->
-                System.out.printf("%-10s x%-3d @ Rs.%s  = Rs.%s%n",
+                System.out.printf("%-10s x%-3d @ %s  = %s%n",
                         l.productCode().value(),
                         l.qty().value(),
-                        l.unitPrice().amount().toPlainString(),
-                        l.lineTotal().amount().toPlainString()));
+                        Currency.formatSimple(l.unitPrice()),
+                        Currency.formatSimple(l.lineTotal())));
         System.out.println("------------------------------------");
-        System.out.println("Subtotal : Rs." + q.subtotal().amount().toPlainString());
-        System.out.println("Discount : Rs." + q.discount().amount().toPlainString());
-        System.out.println("TOTAL    : Rs." + q.total().amount().toPlainString());
+        System.out.println("Subtotal : " + Currency.formatSimple(q.subtotal()));
+        System.out.println("Discount : " + Currency.formatSimple(q.discount()));
+        System.out.println("TOTAL    : " + Currency.formatSimple(q.total()));
         System.out.println("(Pay this amount or more to proceed)");
         System.out.println("------------------------------------\n");
     }

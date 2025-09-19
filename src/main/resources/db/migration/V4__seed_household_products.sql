@@ -1,8 +1,8 @@
 -- Seed data for household products (idempotent)
 INSERT IGNORE INTO product (code, name, price_cents) VALUES
 -- Cleaning Products
-('CLN001', 'All-Purpose Cleaner 500ml', 299),
-('CLN002', 'Dish Soap 750ml', 199);
+('CLN001', 'All-Purpose Cleaner 500ml', 30000),
+('CLN002', 'Dish Soap 750ml', 19900);
 # ('CLN003', 'Laundry Detergent 1L', 599),
 # ('CLN004', 'Toilet Paper 12-pack', 899),
 # ('CLN005', 'Paper Towels 6-pack', 699),
