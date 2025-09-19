@@ -11,9 +11,11 @@ import java.util.Optional;
 
 public final class ProductManagementUseCase {
     private final ProductRepository productRepository;
+    private final CategoryManagementUseCase categoryUseCase;
 
-    public ProductManagementUseCase(ProductRepository productRepository) {
+    public ProductManagementUseCase(ProductRepository productRepository, CategoryManagementUseCase categoryUseCase) {
         this.productRepository = productRepository;
+        this.categoryUseCase = categoryUseCase;
     }
 
     public static final class CreateProductRequest {
@@ -28,6 +30,22 @@ public final class ProductManagementUseCase {
         }
 
         public String code() { return code; }
+        public String name() { return name; }
+        public BigDecimal price() { return price; }
+    }
+
+    public static final class CreateProductWithCategoryRequest {
+        private final String categoryCode;
+        private final String name;
+        private final BigDecimal price;
+
+        public CreateProductWithCategoryRequest(String categoryCode, String name, BigDecimal price) {
+            this.categoryCode = categoryCode;
+            this.name = name;
+            this.price = price;
+        }
+
+        public String categoryCode() { return categoryCode; }
         public String name() { return name; }
         public BigDecimal price() { return price; }
     }
@@ -75,6 +93,25 @@ public final class ProductManagementUseCase {
         return existingProduct.isPresent() ? CreateResult.UPDATED : CreateResult.SUCCESS;
     }
 
+    public CreateProductWithCategoryResult createProductWithCategory(CreateProductWithCategoryRequest request) {
+        validateCreateWithCategoryRequest(request);
+
+        // Generate product code automatically based on category
+        String generatedCode = categoryUseCase.generateProductCode(request.categoryCode());
+
+        Code code = new Code(generatedCode);
+        Product product = new Product(
+            code,
+            request.name(),
+            Money.of(request.price()),
+            request.categoryCode()  // Pass the category code to the Product constructor
+        );
+
+        productRepository.upsert(product);
+
+        return new CreateProductWithCategoryResult(CreateResult.SUCCESS, generatedCode);
+    }
+
     public Optional<ProductInfo> findProduct(String code) {
         if (code == null || code.isBlank()) {
             throw new IllegalArgumentException("Product code cannot be null or blank");
@@ -110,5 +147,30 @@ public final class ProductManagementUseCase {
         if (request.price() == null || request.price().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Product price must be positive");
         }
+    }
+
+    private void validateCreateWithCategoryRequest(CreateProductWithCategoryRequest request) {
+        if (request.categoryCode() == null || request.categoryCode().isBlank()) {
+            throw new IllegalArgumentException("Category code cannot be null or blank");
+        }
+        if (request.name() == null || request.name().isBlank()) {
+            throw new IllegalArgumentException("Product name cannot be null or blank");
+        }
+        if (request.price() == null || request.price().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Product price must be positive");
+        }
+    }
+
+    public static final class CreateProductWithCategoryResult {
+        private final CreateResult result;
+        private final String generatedCode;
+
+        public CreateProductWithCategoryResult(CreateResult result, String generatedCode) {
+            this.result = result;
+            this.generatedCode = generatedCode;
+        }
+
+        public CreateResult result() { return result; }
+        public String generatedCode() { return generatedCode; }
     }
 }
