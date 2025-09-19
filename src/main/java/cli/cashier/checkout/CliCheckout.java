@@ -121,7 +121,7 @@ public final class CliCheckout {
         // Show preview if items exist
         try {
             var preview = quote.preview(cart, new NoDiscount());
-            System.out.println("Estimated total: " + preview.total().amount().toPlainString());
+            System.out.println("Estimated total: Rs." + preview.total().amount().toPlainString());
         } catch (Exception e) {
             System.out.println("Could not calculate preview total");
         }

@@ -162,14 +162,14 @@ public final class ProductManagementCLI {
                         return;
                     }
                     case "2" -> {
-                        BigDecimal newPrice = getValidPrice("Enter new product price ($): ");
+                        BigDecimal newPrice = getValidPrice("Enter new product price (Rs.): ");
                         updateProductField(code, product.name(), newPrice);
                         System.out.println("Product price updated successfully!");
                         return;
                     }
                     case "3" -> {
                         String newName = getValidProductName("Enter new product name: ");
-                        BigDecimal newPrice = getValidPrice("Enter new product price ($): ");
+                        BigDecimal newPrice = getValidPrice("Enter new product price (Rs.): ");
                         updateProductField(code, newName, newPrice);
                         System.out.println("Product updated successfully!");
                         return;
@@ -239,7 +239,7 @@ public final class ProductManagementCLI {
             if (products.isEmpty()) {
                 System.out.println("No products found in the system.");
             } else {
-                System.out.printf("%-15s %-30s %10s%n", "CODE", "NAME", "PRICE ($)");
+                System.out.printf("%-15s %-30s %10s%n", "CODE", "NAME", "PRICE (Rs.)");
                 System.out.println("-".repeat(60));
 
                 for (var product : products) {
@@ -376,7 +376,7 @@ public final class ProductManagementCLI {
         System.out.println("─".repeat(40));
         System.out.printf("Code:  %-30s %n", product.code());
         System.out.printf("Name:  %-30s%n", truncate(product.name(), 30));
-        System.out.printf("Price: $%-28.2f %n", product.price());
+        System.out.printf("Price: Rs. %-25.2f %n", product.price());
         System.out.println("─".repeat(40));
     }
 
